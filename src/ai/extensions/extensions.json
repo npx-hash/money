@@ -1,0 +1,12 @@
+[
+  {
+    "id": "price-optimizer",
+    "goal": "Find +3% to +8% price tests above margin floor",
+    "inputs": ["product_performance", "supplier_costs"]
+  },
+  {
+    "id": "supplier-risk-monitor",
+    "goal": "Detect delays and route to backup supplier",
+    "inputs": ["tracking_events", "supplier_lead_times"]
+  }
+]

@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SupplierType {
+  ALIEXPRESS
+  US_WHOLESALER
+}
+
+enum OrderStatus {
+  PENDING
+  ROUTED
+  SHIPPED
+  DELIVERED
+  REFUNDED
+  CANCELED
+}
+
+enum ReturnRisk {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AutomationType {
+  SUPPLIER_ORDER
+  TRACKING_SYNC
+  LOW_STOCK
+  REFUND
+}
+
+model Supplier {
+  id                String            @id @default(cuid())
+  name              String
+  code              String            @unique
+  type              SupplierType
+  apiBaseUrl        String?
+  contactEmail      String?
+  isActive          Boolean           @default(true)
+  averageLeadDays   Int               @default(2)
+  shippingMaxDays   Int               @default(10)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  supplierProducts  SupplierProduct[]
+  orders            Order[]
+
+  @@index([isActive])
+}
+
+model Product {
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  name              String
+  description       String
+  category          String
+  imageUrl          String
+  supplierCost      Decimal           @db.Decimal(10, 2)
+  salePrice         Decimal           @db.Decimal(10, 2)
+  minMarginPct      Decimal           @default(30) @db.Decimal(5, 2)
+  shippingDays      Int               @default(7)
+  inventory         Int               @default(50)
+  lowStockThreshold Int               @default(5)
+  returnRisk        ReturnRisk        @default(LOW)
+  isActive          Boolean           @default(true)
+  autoPriceTest     Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  supplierProducts  SupplierProduct[]
+  orderItems        OrderItem[]
+  experiments       PriceExperiment[]
+  lowStockAlerts    LowStockAlert[]
+
+  @@index([isActive, category])
+}
+
+model SupplierProduct {
+  id            String    @id @default(cuid())
+  supplierId    String
+  productId     String
+  supplierSku   String
+  supplierPrice Decimal   @db.Decimal(10, 2)
+  stock         Int       @default(0)
+  isPreferred   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  supplier      Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, supplierSku])
+  @@unique([supplierId, productId])
+  @@index([productId, stock])
+}
+
+model Order {
+  id               String          @id @default(cuid())
+  orderNumber      String          @unique
+  stripeSessionId  String?         @unique
+  email            String
+  status           OrderStatus     @default(PENDING)
+  supplierId       String?
+  subtotal         Decimal         @db.Decimal(10, 2)
+  shipping         Decimal         @default(0) @db.Decimal(10, 2)
+  total            Decimal         @db.Decimal(10, 2)
+  profit           Decimal         @db.Decimal(10, 2)
+  currency         String          @default("usd")
+  customerName     String?
+  addressJson      Json?
+  trackingNumber   String?
+  trackingUrl      String?
+  routedAt         DateTime?
+  shippedAt        DateTime?
+  refundedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  supplier         Supplier?       @relation(fields: [supplierId], references: [id])
+  items            OrderItem[]
+  refunds          Refund[]
+  trackingEvents   TrackingEvent[]
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  productId   String
+  quantity    Int
+  unitCost    Decimal   @db.Decimal(10, 2)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  lineProfit  Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model TrackingEvent {
+  id          String    @id @default(cuid())
+  orderId     String
+  status      String
+  detail      String
+  occurredAt  DateTime
+  createdAt   DateTime  @default(now())
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, occurredAt])
+}
+
+model Refund {
+  id              String    @id @default(cuid())
+  orderId         String
+  stripeRefundId  String?
+  amount          Decimal   @db.Decimal(10, 2)
+  reason          String?
+  createdAt       DateTime  @default(now())
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model LowStockAlert {
+  id          String    @id @default(cuid())
+  productId   String
+  inventory   Int
+  threshold   Int
+  sentAt      DateTime  @default(now())
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sentAt])
+}
+
+model PriceExperiment {
+  id          String    @id @default(cuid())
+  productId   String
+  variant     String
+  testPrice   Decimal   @db.Decimal(10, 2)
+  isActive    Boolean   @default(true)
+  impressions Int       @default(0)
+  conversions Int       @default(0)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, isActive])
+}
+
+model AutomationLog {
+  id          String          @id @default(cuid())
+  type        AutomationType
+  success     Boolean
+  message     String
+  payload     Json?
+  createdAt   DateTime        @default(now())
+
+  @@index([type, createdAt])
+}
