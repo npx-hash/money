@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { toggleDemoProduct } from "@/admin/demo-state";
 import { toggleProduct } from "@/admin/service";
+import { isDatabaseConnectionError } from "@/core/db-errors";
 
 const bodySchema = z.object({
   isActive: z.boolean(),
@@ -23,7 +24,11 @@ export async function POST(
           isActive: product.isActive,
         },
       });
-    } catch {
+    } catch (error) {
+      if (!isDatabaseConnectionError(error)) {
+        throw error;
+      }
+
       const product = toggleDemoProduct(id, payload.isActive);
       return NextResponse.json({ product, fallback: true });
     }

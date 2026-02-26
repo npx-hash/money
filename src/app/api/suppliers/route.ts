@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { listDemoSuppliers, updateDemoSupplier } from "@/admin/demo-state";
 import { listSuppliers, updateSupplier } from "@/admin/service";
+import { isDatabaseConnectionError } from "@/core/db-errors";
 
 const updateSchema = z.object({
   id: z.string().min(1),
@@ -15,8 +16,13 @@ export async function GET() {
   try {
     const suppliers = await listSuppliers();
     return NextResponse.json({ suppliers });
-  } catch {
-    return NextResponse.json({ suppliers: listDemoSuppliers(), fallback: true });
+  } catch (error) {
+    if (isDatabaseConnectionError(error)) {
+      return NextResponse.json({ suppliers: listDemoSuppliers(), fallback: true });
+    }
+
+    const message = error instanceof Error ? error.message : "Unable to load suppliers";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -27,7 +33,11 @@ export async function PATCH(request: Request) {
     try {
       const supplier = await updateSupplier(payload);
       return NextResponse.json({ supplier });
-    } catch {
+    } catch (error) {
+      if (!isDatabaseConnectionError(error)) {
+        throw error;
+      }
+
       const supplier = updateDemoSupplier(payload);
       return NextResponse.json({ supplier, fallback: true });
     }

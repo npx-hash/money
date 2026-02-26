@@ -6,6 +6,7 @@ import {
   updateDemoPricing,
 } from "@/admin/demo-state";
 import { createPriceExperiment, listProductsForAdmin, updateProductPricing } from "@/admin/service";
+import { isDatabaseConnectionError } from "@/core/db-errors";
 
 const updateSchema = z.object({
   productId: z.string().min(1),
@@ -31,11 +32,16 @@ export async function GET() {
         autoPriceTest: product.autoPriceTest,
       })),
     });
-  } catch {
-    return NextResponse.json({
-      products: listDemoPricingProducts(),
-      fallback: true,
-    });
+  } catch (error) {
+    if (isDatabaseConnectionError(error)) {
+      return NextResponse.json({
+        products: listDemoPricingProducts(),
+        fallback: true,
+      });
+    }
+
+    const message = error instanceof Error ? error.message : "Pricing read failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -51,7 +57,11 @@ export async function POST(request: Request) {
           salePrice: Number(product.salePrice),
         },
       });
-    } catch {
+    } catch (error) {
+      if (!isDatabaseConnectionError(error)) {
+        throw error;
+      }
+
       const product = updateDemoPricing(payload);
       return NextResponse.json({
         product: {
@@ -80,7 +90,11 @@ export async function PATCH(request: Request) {
           testPrice: Number(experiment.testPrice),
         })),
       });
-    } catch {
+    } catch (error) {
+      if (!isDatabaseConnectionError(error)) {
+        throw error;
+      }
+
       const experiments = createDemoPriceExperiment(payload.productId);
       return NextResponse.json({
         experiments: experiments.map((experiment) => ({

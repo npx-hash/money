@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useCart } from "@/components/cart-provider";
 
-export function CheckoutButton() {
+export function CheckoutButton({ email }: { email?: string }) {
   const { items } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +23,7 @@ export function CheckoutButton() {
             productId: item.productId,
             quantity: item.quantity,
           })),
+          email: email?.trim() || undefined,
         }),
       });
 

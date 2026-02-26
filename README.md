@@ -51,6 +51,8 @@ Open `http://localhost:3000`.
 - Collections: `/collections`
 - Cart: `/cart`
 - Admin dashboard: `/admin`
+- Orders admin: `/admin/orders`
+- Automation admin: `/admin/automation`
 - Supplier editor: `/admin/suppliers`
 - Price controls: `/admin/pricing`
 - Product kill-switch: `/admin/products`
@@ -58,7 +60,7 @@ Open `http://localhost:3000`.
 ## API Endpoints
 - `POST /api/checkout` create Stripe checkout session (or simulated fallback)
 - `POST /api/webhooks/stripe` Stripe webhook consumer
-- `POST /api/orders` manual order creation
+- `GET/POST /api/orders` order list + manual order creation
 - `POST /api/orders/:id/refund` refund workflow
 - `GET/PATCH /api/suppliers` supplier management
 - `GET/POST/PATCH /api/pricing` pricing + experiments

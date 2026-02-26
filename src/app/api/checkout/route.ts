@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createOrderFromItems } from "@/core/order-service";
 import { getStripe } from "@/core/stripe";
 import { absoluteUrl } from "@/core/url";
-import { generateOrderNumber } from "@/core/money";
+import { createDemoOrder } from "@/core/demo-order-state";
 import { resolveCartItems } from "@/products/product-service";
 
 const payloadSchema = z.object({
@@ -66,9 +66,13 @@ export async function POST(request: Request) {
           url: absoluteUrl(`/checkout/success?simulated=1&order=${simulatedOrder.orderNumber}`),
         });
       } catch {
-        const simulatedOrderNumber = generateOrderNumber();
+        const simulatedOrder = createDemoOrder({
+          email: payload.email ?? "simulated-customer@example.com",
+          items: resolvedItems,
+        });
+
         return NextResponse.json({
-          url: absoluteUrl(`/checkout/success?simulated=1&order=${simulatedOrderNumber}`),
+          url: absoluteUrl(`/checkout/success?simulated=1&order=${simulatedOrder.orderNumber}`),
         });
       }
     }

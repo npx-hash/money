@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { CheckoutButton } from "@/components/checkout-button";
 import { useCart } from "@/components/cart-provider";
 
 export default function CartPage() {
   const { items, subtotal, removeItem, updateQuantity } = useCart();
+  const [email, setEmail] = useState("");
+  const emailValid = useMemo(() => email.length === 0 || /\S+@\S+\.\S+/.test(email), [email]);
 
   return (
     <div className="page-shell space-y-6">
@@ -59,6 +62,20 @@ export default function CartPage() {
           </section>
 
           <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+            <div>
+              <label htmlFor="checkout-email" className="text-sm font-semibold text-slate-700">
+                Email for receipt/tracking (optional)
+              </label>
+              <input
+                id="checkout-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.currentTarget.value)}
+                placeholder="you@example.com"
+                className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+              />
+              {!emailValid ? <p className="mt-1 text-xs font-semibold text-rose-700">Enter a valid email address.</p> : null}
+            </div>
             <div className="flex items-center justify-between text-sm text-slate-600">
               <span>Subtotal</span>
               <span className="font-bold text-slate-900">${subtotal.toFixed(2)}</span>
@@ -73,7 +90,17 @@ export default function CartPage() {
                 <span className="text-xl font-black text-slate-900">${subtotal.toFixed(2)}</span>
               </div>
             </div>
-            <CheckoutButton />
+            {emailValid ? (
+              <CheckoutButton email={email} />
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full rounded-xl bg-slate-400 px-4 py-3 text-sm font-semibold text-white"
+              >
+                Checkout
+              </button>
+            )}
           </aside>
         </div>
       )}

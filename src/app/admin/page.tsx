@@ -18,7 +18,19 @@ export default async function AdminDashboardPage() {
         <MetricCard label="Avg Profit/Order" value={`$${snapshot.avgProfit.toFixed(2)}`} />
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <QuickActionCard
+          href="/admin/orders"
+          title="Order Nodes"
+          description="Inspect order states, totals, and execute customer refunds."
+          cta="Open orders"
+        />
+        <QuickActionCard
+          href="/admin/automation"
+          title="Automation Nodes"
+          description="Run tracking sync and low-stock sweeps directly from admin."
+          cta="Open automation"
+        />
         <QuickActionCard
           href="/admin/suppliers"
           title="Supplier Nodes"

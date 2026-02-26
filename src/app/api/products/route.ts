@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listDemoProductStatus } from "@/admin/demo-state";
 import { db } from "@/core/db";
+import { isDatabaseConnectionError } from "@/core/db-errors";
 import { listActiveProducts } from "@/products/product-service";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +35,12 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ products });
-  } catch {
-    return NextResponse.json({ products: listDemoProductStatus(), fallback: true });
+  } catch (error) {
+    if (isDatabaseConnectionError(error)) {
+      return NextResponse.json({ products: listDemoProductStatus(), fallback: true });
+    }
+
+    const message = error instanceof Error ? error.message : "Failed to load products";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

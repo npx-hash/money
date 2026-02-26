@@ -1,20 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useCart } from "@/components/cart-provider";
 
 export default function CheckoutSuccessPage() {
   const { clearCart } = useCart();
-  const [simulated, setSimulated] = useState(false);
-  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const { simulated, orderNumber } = useMemo(() => {
+    if (typeof window === "undefined") {
+      return { simulated: false, orderNumber: null as string | null };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    return {
+      simulated: params.get("simulated") === "1",
+      orderNumber: params.get("order"),
+    };
+  }, []);
 
   useEffect(() => {
     clearCart();
-
-    const params = new URLSearchParams(window.location.search);
-    setSimulated(params.get("simulated") === "1");
-    setOrderNumber(params.get("order"));
   }, [clearCart]);
 
   return (
