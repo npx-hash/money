@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { listDemoProductStatus } from "@/admin/demo-state";
 import { db } from "@/core/db";
 import { listActiveProducts } from "@/products/product-service";
 
@@ -33,8 +34,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ products });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load products";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ products: listDemoProductStatus(), fallback: true });
   }
 }

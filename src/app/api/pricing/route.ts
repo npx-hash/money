@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  createDemoPriceExperiment,
+  listDemoPricingProducts,
+  updateDemoPricing,
+} from "@/admin/demo-state";
 import { createPriceExperiment, listProductsForAdmin, updateProductPricing } from "@/admin/service";
 
 const updateSchema = z.object({
@@ -26,22 +31,36 @@ export async function GET() {
         autoPriceTest: product.autoPriceTest,
       })),
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Pricing read failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({
+      products: listDemoPricingProducts(),
+      fallback: true,
+    });
   }
 }
 
 export async function POST(request: Request) {
   try {
     const payload = updateSchema.parse(await request.json());
-    const product = await updateProductPricing(payload);
-    return NextResponse.json({
-      product: {
-        id: product.id,
-        salePrice: Number(product.salePrice),
-      },
-    });
+
+    try {
+      const product = await updateProductPricing(payload);
+      return NextResponse.json({
+        product: {
+          id: product.id,
+          salePrice: Number(product.salePrice),
+        },
+      });
+    } catch {
+      const product = updateDemoPricing(payload);
+      return NextResponse.json({
+        product: {
+          id: product.id,
+          salePrice: product.salePrice,
+        },
+        fallback: true,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Pricing update failed";
     return NextResponse.json({ error: message }, { status: 400 });
@@ -51,14 +70,27 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const payload = experimentSchema.parse(await request.json());
-    const experiments = await createPriceExperiment(payload.productId);
-    return NextResponse.json({
-      experiments: experiments.map((experiment) => ({
-        id: experiment.id,
-        variant: experiment.variant,
-        testPrice: Number(experiment.testPrice),
-      })),
-    });
+
+    try {
+      const experiments = await createPriceExperiment(payload.productId);
+      return NextResponse.json({
+        experiments: experiments.map((experiment) => ({
+          id: experiment.id,
+          variant: experiment.variant,
+          testPrice: Number(experiment.testPrice),
+        })),
+      });
+    } catch {
+      const experiments = createDemoPriceExperiment(payload.productId);
+      return NextResponse.json({
+        experiments: experiments.map((experiment) => ({
+          id: experiment.id,
+          variant: experiment.variant,
+          testPrice: experiment.testPrice,
+        })),
+        fallback: true,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Experiment creation failed";
     return NextResponse.json({ error: message }, { status: 400 });

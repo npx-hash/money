@@ -7,7 +7,7 @@ export default async function Home() {
 
   return (
     <div className="page-shell space-y-10">
-      <section className="reveal grid gap-6 rounded-3xl border border-emerald-200 bg-white/90 p-8 shadow-sm md:grid-cols-[1.3fr_1fr]">
+      <section className="reveal grid gap-6 rounded-3xl border border-slate-200 bg-white/95 p-8 shadow-sm md:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">
           <p className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
             Brokered Dropshipping MVP
@@ -20,10 +20,16 @@ export default async function Home() {
             money.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/collections" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700">
+            <Link
+              href="/collections"
+              className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            >
               Shop Collection
             </Link>
-            <Link href="/admin" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+            <Link
+              href="/admin"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            >
               Open Admin
             </Link>
           </div>

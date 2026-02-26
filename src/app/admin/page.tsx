@@ -18,6 +18,27 @@ export default async function AdminDashboardPage() {
         <MetricCard label="Avg Profit/Order" value={`$${snapshot.avgProfit.toFixed(2)}`} />
       </section>
 
+      <section className="grid gap-4 md:grid-cols-3">
+        <QuickActionCard
+          href="/admin/suppliers"
+          title="Supplier Nodes"
+          description="Lead times, shipping windows, and active routing readiness."
+          cta="Open suppliers"
+        />
+        <QuickActionCard
+          href="/admin/pricing"
+          title="Pricing Nodes"
+          description="Margin-safe prices, experiment variants, and fast guardrail checks."
+          cta="Open pricing"
+        />
+        <QuickActionCard
+          href="/admin/products"
+          title="Product Nodes"
+          description="Inventory thresholds and kill-switch controls for each SKU."
+          cta="Open products"
+        />
+      </section>
+
       <section className="grid gap-6 lg:grid-cols-2">
         <article className="rounded-2xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
@@ -83,5 +104,25 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-black text-slate-900">{value}</p>
     </article>
+  );
+}
+
+function QuickActionCard({
+  href,
+  title,
+  description,
+  cta,
+}: {
+  href: string;
+  title: string;
+  description: string;
+  cta: string;
+}) {
+  return (
+    <Link href={href} className="rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-sm">
+      <p className="text-sm font-black text-slate-900">{title}</p>
+      <p className="mt-1 text-sm text-slate-600">{description}</p>
+      <p className="mt-3 text-sm font-semibold text-emerald-700">{cta}</p>
+    </Link>
   );
 }

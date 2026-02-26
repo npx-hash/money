@@ -13,17 +13,20 @@ type PricingProduct = {
 
 export default function PricingPage() {
   const [products, setProducts] = useState<PricingProduct[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   async function fetchPricingProducts() {
     const response = await fetch("/api/pricing", { cache: "no-store" });
-    const body = (await response.json()) as { products?: PricingProduct[]; error?: string };
+    const body = (await response.json()) as { products?: PricingProduct[]; error?: string; fallback?: boolean };
 
     if (!response.ok || !body.products) {
       throw new Error(body.error ?? "Failed to load pricing");
     }
 
-    return body.products;
+    return { products: body.products, fallback: Boolean(body.fallback) };
   }
 
   useEffect(() => {
@@ -33,12 +36,18 @@ export default function PricingPage() {
       try {
         const data = await fetchPricingProducts();
         if (!cancelled) {
-          setProducts(data);
+          setProducts(data.products);
+          setDemoMode(data.fallback);
           setError(null);
+          setNotice(null);
         }
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Load failed");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
         }
       }
     })();
@@ -49,12 +58,16 @@ export default function PricingPage() {
   }, []);
 
   async function refreshProducts() {
+    setLoading(true);
     try {
       const data = await fetchPricingProducts();
-      setProducts(data);
+      setProducts(data.products);
+      setDemoMode(data.fallback);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Load failed");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -76,6 +89,8 @@ export default function PricingPage() {
       return;
     }
 
+    setNotice("Price saved.");
+    setError(null);
     await refreshProducts();
   }
 
@@ -92,6 +107,7 @@ export default function PricingPage() {
       return;
     }
 
+    setNotice("Experiment variants generated.");
     setError(null);
   }
 
@@ -99,8 +115,16 @@ export default function PricingPage() {
     <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
       <h2 className="text-xl font-black text-slate-900">Price Controls</h2>
       <p className="text-sm text-slate-600">30%+ margin is enforced on every price update.</p>
+      {demoMode ? <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Demo mode: in-memory data</p> : null}
+      {loading ? <p className="text-sm text-slate-600">Loading pricing products...</p> : null}
+      {notice ? <p className="text-sm font-semibold text-emerald-700">{notice}</p> : null}
       {error ? <p className="text-sm font-semibold text-rose-700">{error}</p> : null}
       <div className="space-y-3">
+        {!loading && products.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
+            No products available for pricing yet.
+          </p>
+        ) : null}
         {products.map((product) => (
           <article key={product.id} className="grid gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto_auto] lg:items-center">
             <p className="font-bold text-slate-900">{product.name}</p>

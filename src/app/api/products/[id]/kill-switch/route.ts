@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { toggleDemoProduct } from "@/admin/demo-state";
 import { toggleProduct } from "@/admin/service";
 
 const bodySchema = z.object({
@@ -13,13 +14,19 @@ export async function POST(
   try {
     const { id } = await params;
     const payload = bodySchema.parse(await request.json());
-    const product = await toggleProduct(id, payload.isActive);
-    return NextResponse.json({
-      product: {
-        id: product.id,
-        isActive: product.isActive,
-      },
-    });
+
+    try {
+      const product = await toggleProduct(id, payload.isActive);
+      return NextResponse.json({
+        product: {
+          id: product.id,
+          isActive: product.isActive,
+        },
+      });
+    } catch {
+      const product = toggleDemoProduct(id, payload.isActive);
+      return NextResponse.json({ product, fallback: true });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Kill-switch update failed";
     return NextResponse.json({ error: message }, { status: 400 });
