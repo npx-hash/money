@@ -31,29 +31,73 @@ function toSupplierOrderItems(items: {
     }[];
   };
 }[]) {
-  const selectedBySupplier = new Map<
-    string,
-    {
-      supplierSku: string;
-      quantity: number;
-    }[]
-  >();
-
-  for (const item of items) {
-    const preferred = item.product.supplierProducts.find((entry) => entry.isPreferred && entry.stock >= item.quantity);
-    const fallback = item.product.supplierProducts.find((entry) => entry.stock >= item.quantity);
-    const selected = preferred ?? fallback;
-
-    if (!selected) {
-      throw new Error("Insufficient supplier stock for one or more items");
-    }
-
-    const existing = selectedBySupplier.get(selected.supplierId) ?? [];
-    existing.push({ supplierSku: selected.supplierSku, quantity: item.quantity });
-    selectedBySupplier.set(selected.supplierId, existing);
+  if (!items.length) {
+    throw new Error("Order has no items");
   }
 
-  return selectedBySupplier;
+  const candidateIds = new Set(
+    items[0].product.supplierProducts.filter((entry) => entry.stock >= items[0].quantity).map((entry) => entry.supplierId),
+  );
+
+  for (const item of items.slice(1)) {
+    const eligibleIds = new Set(
+      item.product.supplierProducts.filter((entry) => entry.stock >= item.quantity).map((entry) => entry.supplierId),
+    );
+
+    for (const candidateId of candidateIds) {
+      if (!eligibleIds.has(candidateId)) {
+        candidateIds.delete(candidateId);
+      }
+    }
+  }
+
+  if (!candidateIds.size) {
+    throw new Error("No single supplier can fulfill all order items with current stock");
+  }
+
+  const ranked = Array.from(candidateIds).map((supplierId) => {
+    const supplierItems = items.map((item) => {
+      const supplierEntry = item.product.supplierProducts.find(
+        (entry) => entry.supplierId === supplierId && entry.stock >= item.quantity,
+      );
+
+      if (!supplierEntry) {
+        throw new Error("Insufficient supplier stock for one or more items");
+      }
+
+      return {
+        supplierSku: supplierEntry.supplierSku,
+        quantity: item.quantity,
+        isPreferred: supplierEntry.isPreferred,
+        stock: supplierEntry.stock,
+      };
+    });
+
+    return {
+      supplierId,
+      items: supplierItems.map((line) => ({
+        supplierSku: line.supplierSku,
+        quantity: line.quantity,
+      })),
+      preferredCount: supplierItems.filter((line) => line.isPreferred).length,
+      totalStock: supplierItems.reduce((total, line) => total + line.stock, 0),
+    };
+  });
+
+  ranked.sort((a, b) => {
+    if (b.preferredCount !== a.preferredCount) {
+      return b.preferredCount - a.preferredCount;
+    }
+
+    return b.totalStock - a.totalStock;
+  });
+
+  const [selected] = ranked;
+  if (!selected) {
+    throw new Error("Unable to select supplier");
+  }
+
+  return selected;
 }
 
 export async function routeOrderToSupplier(orderId: string) {
@@ -85,14 +129,7 @@ export async function routeOrderToSupplier(orderId: string) {
     throw new Error("Order not found");
   }
 
-  const bySupplier = toSupplierOrderItems(order.items);
-
-  const sortedOptions = Array.from(bySupplier.entries()).sort((a, b) => b[1].length - a[1].length);
-  const [selectedSupplierId, selectedItems] = sortedOptions[0] ?? [];
-
-  if (!selectedSupplierId) {
-    throw new Error("Unable to select supplier");
-  }
+  const { supplierId: selectedSupplierId, items: selectedItems } = toSupplierOrderItems(order.items);
 
   const supplier = order.items
     .flatMap((item) => item.product.supplierProducts)
@@ -193,7 +230,46 @@ export async function syncTrackingForOpenOrders() {
     grouped.set(order.supplier.type, existing);
   }
 
-  const updates = [] as {
+  const allowedOrderIds = new Set(openOrders.map((order) => order.id));
+  const updatesByOrderId = new Map<
+    string,
+    {
+      orderId: string;
+      trackingNumber: string;
+      trackingUrl?: string;
+      status: "SHIPPED" | "DELIVERED";
+      detail: string;
+      occurredAt: Date;
+    }
+  >();
+
+  for (const [supplierType, orders] of grouped.entries()) {
+    const client = getSupplierClient(supplierType);
+    const response = await client.fetchTrackingUpdates(orders);
+
+    for (const update of response.updates) {
+      if (!allowedOrderIds.has(update.orderId)) {
+        continue;
+      }
+
+      const existing = updatesByOrderId.get(update.orderId);
+      if (!existing) {
+        updatesByOrderId.set(update.orderId, update);
+        continue;
+      }
+
+      if (update.status === "DELIVERED" && existing.status !== "DELIVERED") {
+        updatesByOrderId.set(update.orderId, update);
+        continue;
+      }
+
+      if (update.occurredAt > existing.occurredAt) {
+        updatesByOrderId.set(update.orderId, update);
+      }
+    }
+  }
+
+  const updates = Array.from(updatesByOrderId.values()) as {
     orderId: string;
     trackingNumber: string;
     trackingUrl?: string;
@@ -201,12 +277,6 @@ export async function syncTrackingForOpenOrders() {
     detail: string;
     occurredAt: Date;
   }[];
-
-  for (const [supplierType, orders] of grouped.entries()) {
-    const client = getSupplierClient(supplierType);
-    const response = await client.fetchTrackingUpdates(orders);
-    updates.push(...response.updates);
-  }
 
   for (const update of updates) {
     await db.$transaction(async (tx) => {
@@ -230,6 +300,19 @@ export async function syncTrackingForOpenOrders() {
       });
     });
   }
+
+  await db.automationLog.create({
+    data: {
+      type: "TRACKING_SYNC",
+      success: true,
+      message: `Tracking sync complete: ${updates.length} updates`,
+      payload: {
+        openOrders: openOrders.length,
+        supplierGroups: grouped.size,
+        updatedOrderIds: updates.map((update) => update.orderId),
+      } as Prisma.JsonObject,
+    },
+  });
 
   return updates;
 }
